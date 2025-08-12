@@ -37,6 +37,17 @@ from .results import (
     ProvenanceExportResponse
 )
 
+from .error import (
+    ErrorResponse,
+    ErrorDetail,
+    ValidationErrorResponse,
+    DatabaseErrorResponse,
+    ServiceUnavailableErrorResponse,
+    ProcessingErrorResponse,
+    APIErrorResponse,
+    COMMON_ERROR_RESPONSES
+)
+
 __all__ = [
     # Artwork schemas
     "ArtworkBase",
@@ -71,5 +82,15 @@ __all__ = [
     "ProvenanceEntry",
     "ProvenanceResponse",
     "ProvenanceExportRequest",
-    "ProvenanceExportResponse"
+    "ProvenanceExportResponse",
+    
+    # Error schemas
+    "ErrorResponse",
+    "ErrorDetail", 
+    "ValidationErrorResponse",
+    "DatabaseErrorResponse",
+    "ServiceUnavailableErrorResponse",
+    "ProcessingErrorResponse",
+    "APIErrorResponse",
+    "COMMON_ERROR_RESPONSES"
 ]

@@ -1,26 +1,36 @@
 import os
 import numpy as np
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from app.core.config import settings
 
 try:
-    import pinecone
+    # Try new Pinecone client first (v3.0+)
+    from pinecone import Pinecone
+    pinecone_client = None
+    PINECONE_V3 = True
 except ImportError:
-    pinecone = None
+    try:
+        # Fall back to old Pinecone client (v2.x)
+        import pinecone
+        pinecone_client = pinecone
+        PINECONE_V3 = False
+    except ImportError:
+        pinecone_client = None
+        PINECONE_V3 = False
 
 class VectorService:
     """Service for managing artwork vector embeddings with Pinecone"""
     
     def __init__(self):
-        self.index = None
-        self.index_name = "artwork-embeddings"
-        self.dimension = 512  # Typical dimension for image embeddings
-        self.metric = "cosine"
+        self.index: Optional[Any] = None
+        self.index_name: str = "artwork-embeddings"
+        self.dimension: int = 512  # Typical dimension for image embeddings
+        self.metric: str = "cosine"
         self._initialize_pinecone()
     
-    def _initialize_pinecone(self):
+    def _initialize_pinecone(self) -> None:
         """Initialize Pinecone client and index"""
-        if not pinecone:
+        if not pinecone_client and not PINECONE_V3:
             print("Warning: Pinecone client not installed. Vector operations will be disabled.")
             return
             
@@ -29,27 +39,54 @@ class VectorService:
             return
         
         try:
-            # Initialize Pinecone
-            pinecone.init(
-                api_key=settings.PINECONE_API_KEY,
-                environment="us-east1-gcp"  # Default environment, should be configurable
-            )
-            
-            # Create index if it doesn't exist
-            if self.index_name not in pinecone.list_indexes():
-                print(f"Creating Pinecone index '{self.index_name}'...")
-                pinecone.create_index(
-                    name=self.index_name,
-                    dimension=self.dimension,
-                    metric=self.metric,
-                    metadata_config={
-                        "indexed": ["artwork_id", "title", "year", "format_type"]
-                    }
+            if PINECONE_V3:
+                # New Pinecone client (v3.0+)
+                pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+                
+                # List existing indexes
+                existing_indexes = [index.name for index in pc.list_indexes()]  # type: ignore
+                
+                # Create index if it doesn't exist
+                if self.index_name not in existing_indexes:
+                    print(f"Creating Pinecone index '{self.index_name}'...")
+                    pc.create_index(
+                        name=self.index_name,
+                        dimension=self.dimension,
+                        metric=self.metric,
+                        spec={
+                            "serverless": {
+                                "cloud": "aws",
+                                "region": "us-east-1"
+                            }
+                        }
+                    )  # type: ignore
+                
+                # Connect to the index
+                self.index = pc.Index(self.index_name)  # type: ignore
+                print(f"Connected to Pinecone index '{self.index_name}' (v3.0+)")
+                
+            else:
+                # Old Pinecone client (v2.x)
+                pinecone_client.init(  # type: ignore
+                    api_key=settings.PINECONE_API_KEY,
+                    environment="us-east1-gcp"  # Default environment, should be configurable
                 )
-            
-            # Connect to the index
-            self.index = pinecone.Index(self.index_name)
-            print(f"Connected to Pinecone index '{self.index_name}'")
+                
+                # Create index if it doesn't exist
+                if self.index_name not in pinecone_client.list_indexes():  # type: ignore
+                    print(f"Creating Pinecone index '{self.index_name}'...")
+                    pinecone_client.create_index(  # type: ignore
+                        name=self.index_name,
+                        dimension=self.dimension,
+                        metric=self.metric,
+                        metadata_config={
+                            "indexed": ["artwork_id", "title", "year", "format_type"]
+                        }
+                    )
+                
+                # Connect to the index
+                self.index = pinecone_client.Index(self.index_name)  # type: ignore
+                print(f"Connected to Pinecone index '{self.index_name}' (v2.x)")
             
         except Exception as e:
             print(f"Failed to initialize Pinecone: {e}")
@@ -63,7 +100,7 @@ class VectorService:
         self,
         artwork_id: int,
         embedding: List[float],
-        metadata: Dict = None
+        metadata: Optional[Dict[str, Any]] = None
     ) -> bool:
         """
         Store or update an artwork's vector embedding in Pinecone
@@ -89,7 +126,7 @@ class VectorService:
             }
             
             # Upsert to Pinecone
-            self.index.upsert(vectors=[vector_data])
+            self.index.upsert(vectors=[vector_data])  # type: ignore
             print(f"Successfully stored embedding for artwork {artwork_id}")
             return True
             
@@ -102,7 +139,7 @@ class VectorService:
         query_embedding: List[float],
         top_k: int = 10,
         score_threshold: float = 0.7,
-        filter_metadata: Dict = None
+        filter_metadata: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[str, float, Dict]]:
         """
         Search for similar artworks using vector similarity
@@ -122,11 +159,15 @@ class VectorService:
         
         try:
             # Perform similarity search
+            if self.index is None:
+                print("Vector service index not initialized")
+                return []
+                
             query_response = self.index.query(
                 vector=query_embedding,
                 top_k=top_k,
                 include_metadata=True,
-                filter=filter_metadata
+                filter=filter_metadata  # type: ignore
             )
             
             # Filter results by threshold and format response
@@ -161,11 +202,11 @@ class VectorService:
         
         try:
             # Fetch the vector
-            fetch_response = self.index.fetch(ids=[str(artwork_id)])
+            fetch_response = self.index.fetch(ids=[str(artwork_id)])  # type: ignore
             
             if str(artwork_id) in fetch_response.vectors:
                 vector_data = fetch_response.vectors[str(artwork_id)]
-                return vector_data.values
+                return vector_data.values  # type: ignore
             else:
                 print(f"No embedding found for artwork {artwork_id}")
                 return None
@@ -188,7 +229,7 @@ class VectorService:
             return False
         
         try:
-            self.index.delete(ids=[str(artwork_id)])
+            self.index.delete(ids=[str(artwork_id)])  # type: ignore
             print(f"Successfully deleted embedding for artwork {artwork_id}")
             return True
             
@@ -196,18 +237,18 @@ class VectorService:
             print(f"Error deleting embedding for artwork {artwork_id}: {e}")
             return False
     
-    def get_index_stats(self) -> Dict:
+    def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about the Pinecone index"""
         if not self.is_available():
             return {"error": "Vector service not available"}
         
         try:
-            stats = self.index.describe_index_stats()
+            stats = self.index.describe_index_stats()  # type: ignore
             return {
-                "total_vector_count": stats.total_vector_count,
-                "dimension": stats.dimension,
-                "index_fullness": stats.index_fullness,
-                "namespaces": dict(stats.namespaces) if stats.namespaces else {}
+                "total_vector_count": getattr(stats, 'total_vector_count', 0),
+                "dimension": getattr(stats, 'dimension', self.dimension),
+                "index_fullness": getattr(stats, 'index_fullness', 0.0),
+                "namespaces": dict(getattr(stats, 'namespaces', {})) if hasattr(stats, 'namespaces') else {}
             }
         except Exception as e:
             return {"error": f"Failed to get index stats: {e}"}

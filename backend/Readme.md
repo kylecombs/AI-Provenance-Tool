@@ -4,13 +4,45 @@ FastAPI backend for the AI-powered artwork identification and provenance trackin
 
 ## 🚀 Quick Start
 
+### Option 1: One-Command Setup (Recommended)
+
+```bash
+# For macOS/Linux
+./run_dev.sh
+
+# For Windows  
+run_dev.bat
+
+# Cross-platform Python script
+python run_dev.py
+
+# Using Make (if you have it installed)
+make dev
+```
+
+### Option 2: Manual Setup
+
 1. **Create virtual environment**: `python -m venv venv`
-2. **Activate**: `source venv/bin/activate`
+2. **Activate**: `source venv/bin/activate` (macOS/Linux) or `venv\Scripts\activate` (Windows)
 3. **Install dependencies**: `pip install -r requirements.txt`
 4. **Configure environment**: Copy `.env.example` to `.env` and fill in values
 5. **Run migrations**: `alembic upgrade head`
 6. **Seed database** (optional): `python app/utils/seed_data.py`
 7. **Start server**: `uvicorn app.main:app --reload`
+
+### Development Commands
+
+```bash
+# Different ways to start the server
+./run_dev.sh [port]              # Shell script with custom port
+python run_dev.py --port 8001    # Python script with options
+make dev                         # Make command
+make install                     # Install dependencies
+make migrate                     # Run database migrations
+make seed                        # Seed with sample data
+make test                        # Run tests
+make clean                       # Clean up files
+```
 
 ## 📚 API Documentation
 

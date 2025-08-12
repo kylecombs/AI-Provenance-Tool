@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     AZURE_CUSTOM_VISION_KEY: str = ""
     PINECONE_API_KEY: str = ""
+    PINECONE_ENVIRONMENT: str = "us-east-1"  # For serverless or your environment
     
     # Security
     SECRET_KEY: str = "dev-secret-key-change-in-production"
