@@ -1,6 +1,5 @@
-import os
-import numpy as np
-from typing import List, Dict, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 from app.core.config import settings
 
 try:
@@ -126,6 +125,7 @@ class VectorService:
             }
             
             # Upsert to Pinecone
+            assert self.index is not None  # Type narrowing - is_available() already checked this
             self.index.upsert(vectors=[vector_data])  # type: ignore
             print(f"Successfully stored embedding for artwork {artwork_id}")
             return True
@@ -159,10 +159,7 @@ class VectorService:
         
         try:
             # Perform similarity search
-            if self.index is None:
-                print("Vector service index not initialized")
-                return []
-                
+            assert self.index is not None  # Type narrowing - is_available() already checked this
             query_response = self.index.query(
                 vector=query_embedding,
                 top_k=top_k,
@@ -202,6 +199,7 @@ class VectorService:
         
         try:
             # Fetch the vector
+            assert self.index is not None  # Type narrowing - is_available() already checked this
             fetch_response = self.index.fetch(ids=[str(artwork_id)])  # type: ignore
             
             if str(artwork_id) in fetch_response.vectors:
@@ -229,6 +227,7 @@ class VectorService:
             return False
         
         try:
+            assert self.index is not None  # Type narrowing - is_available() already checked this
             self.index.delete(ids=[str(artwork_id)])  # type: ignore
             print(f"Successfully deleted embedding for artwork {artwork_id}")
             return True
@@ -243,6 +242,7 @@ class VectorService:
             return {"error": "Vector service not available"}
         
         try:
+            assert self.index is not None  # Type narrowing - is_available() already checked this
             stats = self.index.describe_index_stats()  # type: ignore
             return {
                 "total_vector_count": getattr(stats, 'total_vector_count', 0),
